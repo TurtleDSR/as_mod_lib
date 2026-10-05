@@ -1,0 +1,16 @@
+.{
+    .name = .as_mod_lib,
+    .version = "0.0.0",
+    .fingerprint = 0x22d6a54fdd742dd0,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .zip = .{
+            .url = "git+https://github.com/TurtleDSR/kuba_zip_zig/#0b43049f9a58cc517d4d1eb031e81834287cd9d7",
+            .hash = "zip-1.0.3-17qA5ZcMHwB8GpkgqzytHAUv7WR7RGEcy_82F0x86MUi",
+        },
+    },
+    .paths = .{
+        "build.zig.zon",
+        "src",
+    },
+}
