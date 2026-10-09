@@ -34,19 +34,38 @@ pub fn build(b: *std.Build) !void {
     root_module.addImport("lexer", lexer_module);
 
     //test step
-    const tree_test_module = b.addModule("treetest", .{
+    const test_module = b.addModule("treetest", .{
         .root_source_file = b.path("test/lexer/treetests.zig"),
         .target = target,
         .optimize = optimise,
     });
-    tree_test_module.addImport("modlib", root_module);
+    test_module.addImport("modlib", root_module);
 
-    const tree_test = b.addTest(.{
-        .root_module = tree_test_module,
+    const tests = b.addTest(.{
+        .root_module = test_module,
     });
 
-    const test_artifact = b.addRunArtifact(tree_test);
+    const test_artifact = b.addRunArtifact(tests);
 
     const test_step = b.step("test", "Run Tests");
     test_step.dependOn(&test_artifact.step);
+
+    //lib build
+    const root_lib = b.addLibrary(.{
+        .name = "modlib",
+        .linkage = .static,
+        .root_module = root_module,
+    });
+
+    b.installArtifact(root_lib);
+
+    //docs step
+    const docs_step = b.step("docs", "Generate Docs");
+    const docs_install = b.addInstallDirectory(.{
+        .install_dir = .{ .custom = "../" },
+        .source_dir = root_lib.getEmittedDocs(),
+        .install_subdir = "docs",
+    });
+
+    docs_step.dependOn(&docs_install.step);
 }
