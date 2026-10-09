@@ -10,7 +10,9 @@
         },
     },
     .paths = .{
-        "build.zig.zon",
         "src",
+        "build.zig.zon",
+        "LICENSE",
+        "README.md",
     },
 }
