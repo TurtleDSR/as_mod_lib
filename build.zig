@@ -4,54 +4,49 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimise = b.standardOptimizeOption(.{});
 
-    var zipDependency = b.dependency("zip", .{});
-    const zipModule = b.addModule("zip", .{
-        .root_source_file = zipDependency.path("src/root.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
-    zipModule.link_libc = true;
+    //dependencies
+    const zip = b.dependency("zip", .{});
 
-    const lexertreeModule = b.addModule("lexertree", .{
-        .root_source_file = b.path("src/lexer/lexertree.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
-
-    const lexerModule = b.addModule("lexer", .{
-        .root_source_file = b.path("src/lexer/lexer.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
-
-    var rootModule = b.addModule("modlib", .{
+    //root
+    var root_module = b.addModule("modlib", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimise,
     });
 
-    rootModule.addImport("zip", zipModule);
-    rootModule.addImport("lexer", lexerModule);
-    rootModule.addImport("lexertree", lexertreeModule);
+    const lexer_tree_module = b.createModule(.{
+        .root_source_file = b.path("src/lexer/lexertree.zig"),
+        .target = target,
+        .optimize = optimise,
+    });
+    lexer_tree_module.addImport("modlib", root_module);
 
-    lexertreeModule.addImport("modlib", rootModule);
-    lexertreeModule.addImport("lexer", lexerModule);
+    const lexer_module = b.createModule(.{
+        .root_source_file = b.path("src/lexer/lexer.zig"),
+        .target = target,
+        .optimize = optimise,
+    });
+    lexer_module.addImport("tree", lexer_tree_module);
+
+    lexer_tree_module.addImport("lexer", lexer_module); //do this now that lexerTreeModule is made
+
+    root_module.addImport("zip", zip.module("zip"));
+    root_module.addImport("lexer", lexer_module);
 
     //test step
-    const treeTestModule = b.addModule("treetest", .{
+    const tree_test_module = b.addModule("treetest", .{
         .root_source_file = b.path("test/lexer/treetests.zig"),
         .target = target,
         .optimize = optimise,
     });
-    treeTestModule.addImport("modlib", rootModule);
-    treeTestModule.addImport("lexertree", lexertreeModule);
+    tree_test_module.addImport("modlib", root_module);
 
-    const treeTest = b.addTest(.{
-        .root_module = treeTestModule,
+    const tree_test = b.addTest(.{
+        .root_module = tree_test_module,
     });
 
-    const testArtifact = b.addRunArtifact(treeTest);
+    const test_artifact = b.addRunArtifact(tree_test);
 
-    const testStep = b.step("test", "Run Tests");
-    testStep.dependOn(&testArtifact.step);
+    const test_step = b.step("test", "Run Tests");
+    test_step.dependOn(&test_artifact.step);
 }

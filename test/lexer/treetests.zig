@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const modlib = @import("modlib");
-const lexertree = @import("lexertree");
+const lexertree = modlib.lexer.tree;
 
 test "keyword search" {
     const kw = try lexertree.tree.getKeyword("@patch");
