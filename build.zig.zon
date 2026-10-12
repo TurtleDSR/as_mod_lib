@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .zip = .{
-            .url = "git+https://github.com/TurtleDSR/kuba_zip_zig/#bc88e1d43e829aba0a6d39d2350af5e44c8cf39f",
-            .hash = "zip-1.0.3-17qA5QgQHwDiwKDtLG94rWh0tqQglY8eKZ2iVFlIi9Pd",
+            .url = "git+https://github.com/TurtleDSR/kuba_zip_zig/#80e195fed210e8c408b90a780c9c5f667c60ba27",
+            .hash = "zip-1.0.4-17qA5UcTHwB6CVYazmkLoacjgUas9NAwGmxVtmy7wEBx",
         },
     },
     .paths = .{
