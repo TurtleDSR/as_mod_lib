@@ -1,6 +1,6 @@
 const std = @import("std");
-const common = @import("common");
-const lexer = @import("lexer");
+const common = @import("../common.zig");
+const lexer = @import("lexer.zig");
 
 const BUILDER: LexerTreeBuilder = blk: {
     var builder = LexerTreeBuilder{};

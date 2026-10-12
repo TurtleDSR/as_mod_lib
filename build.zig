@@ -7,38 +7,20 @@ pub fn build(b: *std.Build) !void {
     //dependencies
     const zip = b.dependency("zip", .{});
 
-    //root
-    var root_module = b.addModule("modlib", .{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
-
-    var common_module = b.createModule(.{
+    //common
+    const common_module = b.createModule(.{
         .root_source_file = b.path("src/common.zig"),
         .target = target,
         .optimize = optimise,
     });
-
-    const lexer_tree_module = b.createModule(.{
-        .root_source_file = b.path("src/lexer/lexertree.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
-    lexer_tree_module.addImport("common", common_module);
-
-    const lexer_module = b.createModule(.{
-        .root_source_file = b.path("src/lexer/lexer.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
-    lexer_module.addImport("tree", lexer_tree_module);
-
-    lexer_tree_module.addImport("lexer", lexer_module); //do this now that lexerTreeModule is made
-
     common_module.addImport("zip", zip.module("zip"));
-    common_module.addImport("lexer", lexer_module);
 
+    //root
+    const root_module = b.addModule("modlib", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimise,
+    });
     root_module.addImport("common", common_module);
 
     //test step

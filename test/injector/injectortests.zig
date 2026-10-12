@@ -3,5 +3,6 @@ const modlib = @import("modlib");
 
 test "inject zip mod" {
     var handle = modlib.ModLib.init("test/sandbox");
-    try handle.installZipMod("test/mods/test1.zip");
+    var mod = try modlib.Mod.load("test/mods/test1.zip");
+    try handle.installMod(&mod);
 }

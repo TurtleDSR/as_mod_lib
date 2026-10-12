@@ -1,4 +1,4 @@
-const lexertree = @import("tree");
+const lexertree = @import("lexertree.zig");
 
 pub const tree = lexertree.tree;
 
