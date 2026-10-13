@@ -10,26 +10,36 @@ const Mod = common.Mod;
 /// Handle for mod injection
 pub const ModLib = struct {
     scripts_path: [:0]const u8,
+    allocator: std.mem.Allocator,
 
     /// Initializes a ModLib handle.
     ///
     /// **Parameters:**
     /// 
-    /// *scriptsPath* - path to the Scripts directory of the game. 
+    /// *scriptsPath* - path to the Scripts/ directory of the game. 
+    /// 
+    /// *allcoator* - allocator.
     /// 
     /// **Returns:**
     /// 
     /// Resulting ModLib handle.
-    pub fn init(scriptsPath: [:0]const u8) ModLib {
+    /// 
+    /// **Note**
+    /// 
+    /// Do not forget to call deinit on the returned handle when finished.
+    pub fn init(scriptsPath: [:0]const u8, allocator: std.mem.Allocator) ModLib {
         const handle: ModLib = .{
             .scripts_path = scriptsPath,
+            .allocator = allocator,
         };
 
         return handle;
     }
 
     /// Destroys a ModLib handle
-    pub fn destroy() void {}
+    pub fn deinit(self: *ModLib) void {
+        _ = self;
+    }
 
     /// Installs a mod using the correct format.
     /// 
