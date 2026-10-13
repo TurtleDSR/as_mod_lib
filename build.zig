@@ -40,23 +40,4 @@ pub fn build(b: *std.Build) !void {
 
     const test_step = b.step("test", "Run Tests");
     test_step.dependOn(&test_artifact.step);
-
-    //lib build
-    const root_lib = b.addLibrary(.{
-        .name = "modlib",
-        .linkage = .static,
-        .root_module = root_module,
-    });
-
-    b.installArtifact(root_lib);
-
-    //docs step
-    const docs_step = b.step("docs", "Generate Docs");
-    const docs_install = b.addInstallDirectory(.{
-        .install_dir = .{ .custom = "../" },
-        .source_dir = root_lib.getEmittedDocs(),
-        .install_subdir = "docs",
-    });
-
-    docs_step.dependOn(&docs_install.step);
 }

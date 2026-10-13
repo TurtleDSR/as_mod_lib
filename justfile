@@ -8,4 +8,4 @@ test: build
   @[ -d test/static/sandbox/ ] || mkdir -p test/static/sandbox
   @zig build test --summary all
 
-release: docs
+release:
