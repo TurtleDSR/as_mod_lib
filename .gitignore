@@ -1,4 +1,4 @@
 .zig-cache/
 zig-pkg/
 zig-out/
-static/test/sandbox/
+test/static/sandbox/

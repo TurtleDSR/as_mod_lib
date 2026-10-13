@@ -9,8 +9,13 @@ const Mod = common.Mod;
 
 /// Handle for mod injection
 pub const ModLib = struct {
+    /// Path to the games script folder on disk.
     scripts_path: [:0]const u8,
-    allocator: std.mem.Allocator,
+    
+    ///**Note:**
+    /// 
+    /// This field is intended to be used only privately.
+    _allocator: std.mem.Allocator,
 
     /// Initializes a ModLib handle.
     ///
@@ -30,7 +35,7 @@ pub const ModLib = struct {
     pub fn init(scriptsPath: [:0]const u8, allocator: std.mem.Allocator) ModLib {
         const handle: ModLib = .{
             .scripts_path = scriptsPath,
-            .allocator = allocator,
+            ._allocator = allocator,
         };
 
         return handle;

@@ -9,11 +9,22 @@ const ModHandleError = common.ModHandleError;
 
 /// Handle for a mod instance
 pub const Mod = struct {
+    /// Path to the mods file on disk.
     path: [:0]const u8,
-    format: ModFormat,
-    properties: ModProperties = .{},
-    allocator: std.mem.Allocator,
 
+    /// Format the mod file uses.
+    format: ModFormat,
+
+    /// Properties of the mod (name, author, etc.)
+    properties: ModProperties = .{},
+    
+    ///**Note:**
+    /// 
+    /// This field is intended to be used only privately.
+    _allocator: std.mem.Allocator,
+    ///**Note:**
+    /// 
+    /// This field is intended to be used only privately.
     _parsed_properties: ?std.json.Parsed(ModProperties) = null,
 
     /// Load a mod file into a mod handle.8
@@ -45,7 +56,7 @@ pub const Mod = struct {
         var m = Mod{
             .path = file,
             .format = format,
-            .allocator = allocator,
+            ._allocator = allocator,
         };
 
         //asmod file should contain properties
@@ -104,8 +115,8 @@ pub const Mod = struct {
             self._parsed_properties.?.deinit();
         } else {
             //these are both allocated since they require string mutation.
-            self.allocator.free(self.properties.name);
-            self.allocator.free(self.properties.id);
+            self._allocator.free(self.properties.name);
+            self._allocator.free(self.properties.id);
         }
     }
 };
