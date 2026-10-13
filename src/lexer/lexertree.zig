@@ -32,7 +32,7 @@ pub const LexerTreeBuilder = struct {
 
         for (key) |char| {
             if (node.children[char] == NO_CHILD) {
-                if(self.node_count >= MAX_NODES) {
+                if (self.node_count >= MAX_NODES) {
                     @compileError("LexerTree Node Pool Capacity Exceeded!");
                 }
                 const new_node_index = self.node_count;
@@ -53,7 +53,7 @@ pub const LexerTree = struct {
 
     pub fn getKeyword(self: LexerTree, key: []const u8) lexer.LexerError!common.keyword {
         var idx: u32 = 0;
-        
+
         for (key) |char| {
             const next_idx = self.nodes[idx].children[char];
             if (next_idx != NO_CHILD) {

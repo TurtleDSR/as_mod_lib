@@ -17,13 +17,13 @@ pub const Mod = struct {
 
     /// Properties of the mod (name, author, etc.)
     properties: ModProperties = .{},
-    
+
     ///**Note:**
-    /// 
+    ///
     /// This field is intended to be used only privately.
     _allocator: std.mem.Allocator,
     ///**Note:**
-    /// 
+    ///
     /// This field is intended to be used only privately.
     _parsed_properties: ?std.json.Parsed(ModProperties) = null,
 
@@ -98,10 +98,10 @@ pub const Mod = struct {
                 m.properties.author = "Unknown";
                 m.properties.version = "0.0.0";
 
-                const name_buf = allocator.dupe(u8, std.Io.Dir.path.basename(file[0..file.len - 4])) catch return ModHandleError.OutOfMemoryError;
+                const name_buf = allocator.dupe(u8, std.Io.Dir.path.basename(file[0 .. file.len - 4])) catch return ModHandleError.OutOfMemoryError;
                 m.properties.name = name_buf;
 
-                const id_buf = std.mem.concat(allocator, u8, &.{"com.unknown.", name_buf}) catch return ModHandleError.OutOfMemoryError;
+                const id_buf = std.mem.concat(allocator, u8, &.{ "com.unknown.", name_buf }) catch return ModHandleError.OutOfMemoryError;
                 m.properties.id = id_buf;
             },
         }

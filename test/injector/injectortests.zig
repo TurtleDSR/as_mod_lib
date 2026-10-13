@@ -10,7 +10,7 @@ test "load zip mod with properties" {
 
     const properties = mod.properties;
 
-    //all properties should be default 
+    //all properties should be default
     try testing.expect(std.mem.eql(u8, properties.author, "Unknown"));
     try testing.expect(std.mem.eql(u8, properties.name, "zip-injection-test"));
     try testing.expect(std.mem.eql(u8, properties.id, "com.unknown.zip-injection-test"));
