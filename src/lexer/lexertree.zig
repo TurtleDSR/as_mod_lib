@@ -17,11 +17,30 @@ const BUILDER: LexerTreeBuilder = blk: {
 
 pub const tree = LexerTree{ .nodes = BUILDER.nodes[0..BUILDER.node_count] };
 
-pub const LexerTreeBuilder = struct {
+pub const LexerTree = struct {
+    nodes: []const LexerNode,
+
+    pub fn getKeyword(self: LexerTree, key: []const u8) lexer.LexerError!common.keyword {
+        var idx: u32 = 0;
+
+        for (key) |char| {
+            const next_idx = self.nodes[idx].children[char];
+            if (next_idx != NO_CHILD) {
+                idx = next_idx;
+            } else {
+                return lexer.LexerError.UnknownKeyword;
+            }
+        }
+
+        return self.nodes[idx].keyword orelse lexer.LexerError.UnknownKeyword;
+    }
+};
+
+const LexerTreeBuilder = struct {
     const MAX_NODES = 256;
 
-    nodes: [MAX_NODES]LexerNode = [_]LexerNode{.{}} ** MAX_NODES,
-    node_count: u32 = 1, // Node 0 is the root
+    nodes: [MAX_NODES]LexerNode = @splat(.{}),
+    node_count: u8 = 1, // Node 0 is the root
 
     pub fn getRoot(self: *LexerTreeBuilder) *LexerNode {
         return &self.nodes[0];
@@ -48,27 +67,8 @@ pub const LexerTreeBuilder = struct {
     }
 };
 
-pub const LexerTree = struct {
-    nodes: []const LexerNode,
-
-    pub fn getKeyword(self: LexerTree, key: []const u8) lexer.LexerError!common.keyword {
-        var idx: u32 = 0;
-
-        for (key) |char| {
-            const next_idx = self.nodes[idx].children[char];
-            if (next_idx != NO_CHILD) {
-                idx = next_idx;
-            } else {
-                return lexer.LexerError.UnknownKeyword;
-            }
-        }
-
-        return self.nodes[idx].keyword orelse lexer.LexerError.UnknownKeyword;
-    }
-};
-
-pub const NO_CHILD: u32 = std.math.maxInt(u32);
-pub const LexerNode = struct {
+const NO_CHILD: u8 = std.math.maxInt(u8);
+const LexerNode = struct {
     keyword: ?common.keyword = null,
-    children: [256]u32 = [_]u32{NO_CHILD} ** 256,
+    children: [256]u8 = @splat(NO_CHILD),
 };

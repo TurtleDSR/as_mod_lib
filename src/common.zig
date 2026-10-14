@@ -19,13 +19,13 @@ pub const keyword = enum {
     text,
 };
 
-pub const InjectionError = error{
+pub const InjectorError = error{
     FileNotFound,
     FileOpenFailure,
     FileReadError,
     FileWriteError,
     UnknownError,
-    ThreadingUnavailable,
+    OutOfMemory,
 };
 
 pub const ModHandleError = error{

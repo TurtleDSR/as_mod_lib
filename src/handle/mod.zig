@@ -7,6 +7,8 @@ const zip = common.zip;
 const ModFormat = common.ModFormat;
 const ModHandleError = common.ModHandleError;
 
+const ModList = std.ArrayList(Mod);
+
 /// Handle for a mod instance
 pub const Mod = struct {
     /// Path to the mods file on disk.
@@ -15,16 +17,24 @@ pub const Mod = struct {
     /// Format the mod file uses.
     format: ModFormat,
 
+    /// Length of its dependency chain,
+    /// defines which installation batch its injected on.
+    dependency_level: u8 = 0,
+
     /// Properties of the mod (name, author, etc.)
     properties: ModProperties = .{},
 
-    ///**Note:**
+    /// **Note:**
     ///
-    /// This field is intended to be used only privately.
+    /// This field is intended to be used only internally.
+    _dependents: ModList = .empty,
+    /// **Note:**
+    ///
+    /// This field is intended to be used only internally.
     _allocator: std.mem.Allocator,
-    ///**Note:**
+    /// **Note:**
     ///
-    /// This field is intended to be used only privately.
+    /// This field is intended to be used only internally.
     _parsed_properties: ?std.json.Parsed(ModProperties) = null,
 
     /// Load a mod file into a mod handle.8
@@ -111,8 +121,8 @@ pub const Mod = struct {
 
     /// destroys the mod handle
     pub fn deinit(self: *Mod) void {
-        if (self._parsed_properties != null) {
-            self._parsed_properties.?.deinit();
+        if (self._parsed_properties) |p| {
+            p.deinit();
         } else {
             //these are both allocated since they require string mutation.
             self._allocator.free(self.properties.name);
