@@ -21,6 +21,10 @@ pub const ModLib = struct {
     /// **Note:**
     ///
     /// This field is intended to be used only internally.
+    _asmod_mod_queue: std.PriorityQueue(Mod, void, order_mods) = .empty,
+    /// **Note:**
+    ///
+    /// This field is intended to be used only internally.
     _zip_mod_pool: std.ArrayList(Mod) = .empty,
     /// **Note:**
     ///
@@ -54,6 +58,7 @@ pub const ModLib = struct {
     /// Destroys a ModLib handle
     pub fn deinit(self: *ModLib) void {
         self._asmod_mod_pool.destroy(self._allocator);
+        self._asmod_mod_queue.deinit(self._allocator);
         self._zip_mod_pool.deinit(self._allocator);
     }
 
@@ -89,12 +94,21 @@ pub const ModLib = struct {
     pub fn installMods(self: *ModLib, io: std.Io) InjectorError!void {
         _ = io;
 
+        //install zip mods.
+        //must be done sequentially since theres no dependency system.
         for(self._zip_mod_pool.items) |mod| {
             try self.installZipMod(mod);
         }
 
+        //order asmod handles into queue.
+        while(self._asmod_mod_pool.keys.items.len > 0) {
+            const key = self._asmod_mod_pool.pop(0) catch return InjectorError.MissingDependency;
+            _ = try self.handle_mod(key);
+        }
+
         self._asmod_mod_pool.purge();
         self._zip_mod_pool.clearRetainingCapacity();
+        self._asmod_mod_queue.clearRetainingCapacity();
     }
 
     /// Installs a mod using the legacy zip format.
@@ -114,19 +128,47 @@ pub const ModLib = struct {
         };
     }
 
-    /// Installs a mod using the asmod format.
-    ///
-    /// **Params:**
-    ///
-    /// *mod* - mod handle to inject.
-    fn installAsmod(self: *ModLib, mod: Mod) InjectorError!void {
-        _ = self;
-        _ = mod;
+    fn handle_mod(self: *ModLib, key: []const u8) InjectorError!u8 {
+        const mod_index = self._asmod_mod_pool.findMod(key) catch return InjectorError.MissingDependency;
+
+        if(self._asmod_mod_pool.nodes.items[mod_index].mod) |m| {
+            var level: u8 = 0;
+
+            //handle dependencies
+            if(m.properties.dependencies) |deps| {
+                for(deps) |dep| {
+                    const l = try self.handle_mod(dep);
+                    if(l > level) level = l + 1;
+                }
+            }
+
+            //handle soft dependencies
+            if(m.properties.soft_dependencies) |deps| {
+                for(deps) |dep| {
+                    const l = self.handle_mod(dep) catch {
+                        continue;
+                    }; //ignore error since dependency isnt required
+                    if(l > level) level = l + 1;
+                }
+            }
+
+            if(self._asmod_mod_pool.nodes.items[mod_index].mod != null) {
+                self._asmod_mod_pool.nodes.items[mod_index].mod.?.dependency_level = level;
+            }
+
+            self._asmod_mod_queue.push(self._allocator, m) catch return InjectorError.OutOfMemory;
+
+            self._asmod_mod_pool.removeKey(key);
+
+            return level;
+        } else {
+            return InjectorError.MissingDependency;
+        }
     }
 };
 
 /// Used for ordering mods in the installation queue.
-fn orderMods(context: void, a: Mod, b: Mod) std.math.Order {
+fn order_mods(context: void, a: Mod, b: Mod) std.math.Order {
     _ = context; //ignored
 
     if (a.dependency_level < b.dependency_level) {

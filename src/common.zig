@@ -26,6 +26,7 @@ pub const InjectorError = error{
     FileWriteError,
     UnknownError,
     OutOfMemory,
+    MissingDependency,
 };
 
 pub const ModHandleError = error{

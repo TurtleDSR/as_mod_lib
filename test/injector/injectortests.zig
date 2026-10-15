@@ -45,7 +45,9 @@ test "queue asmod" {
 
     try handle.queueMod(mod);
 
-    const properties = (try handle._asmod_mod_pool.findMod("com.turtledsr.preloadfix")).properties;
+    const mod_index = try handle._asmod_mod_pool.findMod(mod.properties.id);
+    const properties = handle._asmod_mod_pool.nodes.items[mod_index].mod.?.properties;
+
     try testing.expect(std.mem.eql(u8, properties.author, "TurtleDSR"));
     try testing.expect(std.mem.eql(u8, properties.name, "PreloadFix"));
     try testing.expect(std.mem.eql(u8, properties.id, "com.turtledsr.preloadfix"));
