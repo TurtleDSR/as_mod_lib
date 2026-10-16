@@ -84,7 +84,10 @@ pub const Mod = struct {
                     defer z.close();
 
                     z.openEntry("properties.json") catch |err| {
-                        if (err != zip.ZipError.EntryNotFound) {
+                        if (err == zip.ZipError.EntryNotFound) {
+                            m.properties = .{};
+                            return m;
+                        } else {
                             return ModHandleError.PropertiesOpenError;
                         }
                     };
@@ -96,7 +99,10 @@ pub const Mod = struct {
 
                         const properties = json.parseFromSlice(ModProperties, allocator, property_data, .{
                             .allocate = .alloc_always,
-                        }) catch return ModHandleError.PropertiesParseError;
+                        }) catch {
+                            m.properties = .{};
+                            return m;
+                        };
 
                         m.properties = properties.value;
                         m._parsed_properties = properties;

@@ -6,6 +6,8 @@ const lexer = common.lexer;
 const InjectorError = common.InjectorError;
 const ScriptEdit = scriptedit.ScriptEdit;
 
+var i: usize = 0;
+
 pub fn streamEdits(data: []const u8, queue: *std.Io.Queue(ScriptEdit), allocator: std.mem.Allocator) InjectorError!void {
     _ = queue;
     var tokens = lexer.getTokens(data, allocator) catch |err| {

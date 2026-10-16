@@ -21,7 +21,7 @@ test "inject hazemod" {
     var handle = try modlib.ModLib.init("test/static/sandbox", allocator);
     defer handle.deinit();
 
-    var mod = try modlib.Mod.load("test/static/mods/property-test.hazemod", allocator);
+    var mod = try modlib.Mod.load("test/static/mods/test1.hazemod", allocator);
     defer mod.deinit();
 
     try handle.queueMod(mod);

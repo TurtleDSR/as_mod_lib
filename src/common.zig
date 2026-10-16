@@ -24,7 +24,8 @@ pub const Keyword = enum {
     ENUM,
 
     //misc
-    _text, //can eitehr be angelscript or plain text, implied by context.
+    _text, //can either be angelscript or plain text, implied by context.
+    _newline, //used to maintain code readability and as compile-ability
     _null, //no-op, used as a default value for the token struct.
 };
 
