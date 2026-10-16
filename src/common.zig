@@ -9,14 +9,25 @@ pub const mod = @import("handle/mod.zig");
 pub const ModLib = modlib.ModLib;
 pub const Mod = mod.Mod;
 
-pub const keyword = enum {
+pub const Keyword = enum {
+    //operations
     open,
     import,
     patch,
     add,
     end,
     comment,
-    text,
+
+    //scope
+    GLOBAL,
+    CLASS,
+    FUNCTION,
+    PROPERTY,
+    ENUM,
+
+    //misc
+    _text, //can eitehr be angelscript or plain text, implied by context.
+    _null, //no-op, used as a default value for the token struct.
 };
 
 pub const InjectorError = error{
@@ -27,6 +38,8 @@ pub const InjectorError = error{
     UnknownError,
     OutOfMemory,
     MissingDependency,
+    ThreadingError,
+    SyntaxError,
 };
 
 pub const ModHandleError = error{
@@ -42,6 +55,6 @@ pub const ModHandleError = error{
 };
 
 pub const ModFormat = enum {
-    ASMOD,
+    HAZEMOD,
     ZIP,
 };

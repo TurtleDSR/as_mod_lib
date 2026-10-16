@@ -1,6 +1,10 @@
 const std = @import("std");
 const common = @import("../common.zig");
 const modpool = @import("../pool/modpool.zig");
+const scriptedit = @import("../parser/scriptedit.zig");
+
+const parser = @import("../parser/parser.zig");
+const injector = @import("../injector/injector.zig");
 
 const zip = common.zip;
 
@@ -10,18 +14,24 @@ const Mod = common.Mod;
 
 const ModPool = modpool.ModPool;
 
+const ScriptEdit = scriptedit.ScriptEdit;
+
 /// Handle for mod injection
 pub const ModLib = struct {
-    /// Path to the games script folder on disk.
+    /// Path to the games script folder on disk. (<Steam_Common>/ItTakesTwo/Nuts/ for example)
     scripts_path: [:0]const u8,
     /// **Note:**
     ///
     /// This field is intended to be used only internally.
-    _asmod_mod_pool: ModPool = .empty,
+    _hazemod_mod_pool: ModPool = .empty,
     /// **Note:**
     ///
     /// This field is intended to be used only internally.
-    _asmod_mod_queue: std.PriorityQueue(Mod, void, order_mods) = .empty,
+    _hazemod_mod_queue: std.PriorityQueue(Mod, void, order_mods) = .empty,
+    /// **Note:**
+    ///
+    /// This field is intended to be used only internally.
+    _hazemod_levels: std.StringArrayHashMapUnmanaged(u8) = .empty,
     /// **Note:**
     ///
     /// This field is intended to be used only internally.
@@ -35,7 +45,7 @@ pub const ModLib = struct {
     ///
     /// **Parameters:**
     ///
-    /// *scriptsPath* - path to the Scripts/ directory of the game.
+    /// *game_path* - path to the game directory.
     ///
     /// *allcoator* - allocator.
     ///
@@ -46,9 +56,9 @@ pub const ModLib = struct {
     /// **Note**
     ///
     /// Do not forget to call deinit on the returned handle when finished.
-    pub fn init(scriptsPath: [:0]const u8, allocator: std.mem.Allocator) ModLib {
+    pub fn init(game_path: [:0]const u8, allocator: std.mem.Allocator) InjectorError!ModLib {
         const handle: ModLib = .{
-            .scripts_path = scriptsPath,
+            .scripts_path = std.fmt.allocPrintSentinel(allocator, "{s}/Scripts/", .{game_path}, 0) catch return InjectorError.OutOfMemory,
             ._allocator = allocator,
         };
 
@@ -57,9 +67,12 @@ pub const ModLib = struct {
 
     /// Destroys a ModLib handle
     pub fn deinit(self: *ModLib) void {
-        self._asmod_mod_pool.destroy(self._allocator);
-        self._asmod_mod_queue.deinit(self._allocator);
+        self._allocator.free(self.scripts_path);
+
+        self._hazemod_mod_pool.destroy(self._allocator);
+        self._hazemod_mod_queue.deinit(self._allocator);
         self._zip_mod_pool.deinit(self._allocator);
+        self._hazemod_levels.deinit(self._allocator);
     }
 
     /// Queues the mod to the internal mod pool.
@@ -68,18 +81,18 @@ pub const ModLib = struct {
     /// **Parameters:**
     ///
     /// *mod* - mod handle to add to the pool.
-    /// 
+    ///
     /// **Note:**
-    /// 
+    ///
     /// May allocate memory.
     pub fn queueMod(self: *ModLib, mod: Mod) InjectorError!void {
         switch (mod.format) {
             ModFormat.ZIP => {
                 self._zip_mod_pool.append(self._allocator, mod) catch return InjectorError.OutOfMemory;
             },
-            ModFormat.ASMOD => {
-                self._asmod_mod_pool.addMod(self._allocator, mod) catch return InjectorError.OutOfMemory;
-            }
+            ModFormat.HAZEMOD => {
+                self._hazemod_mod_pool.addMod(self._allocator, mod) catch return InjectorError.OutOfMemory;
+            },
         }
     }
 
@@ -88,27 +101,66 @@ pub const ModLib = struct {
     /// **Note:**
     ///
     /// All zip mods will be installed first, in order of queue index.
-    /// Dependecies for asmod mods will be evaluated and respected.
+    /// Dependecies for hazemod mods will be evaluated and respected.
     ///
     /// mod pool will be purged on installation success.
     pub fn installMods(self: *ModLib, io: std.Io) InjectorError!void {
-        _ = io;
-
         //install zip mods.
         //must be done sequentially since theres no dependency system.
-        for(self._zip_mod_pool.items) |mod| {
+        for (self._zip_mod_pool.items) |mod| {
             try self.installZipMod(mod);
         }
 
-        //order asmod handles into queue.
-        while(self._asmod_mod_pool.keys.items.len > 0) {
-            const key = self._asmod_mod_pool.pop(0) catch return InjectorError.MissingDependency;
-            _ = try self.handle_mod(key);
+        if(self._hazemod_mod_pool.keys.items.len > 0) { //skip installing hazemods if they arent present
+            self._hazemod_levels.clearRetainingCapacity();
+            //order hazemod handles into queue.
+            while (self._hazemod_mod_pool.keys.items.len > 0) {
+                const key = self._hazemod_mod_pool.pop(0) catch return InjectorError.MissingDependency;
+                _ = try self.order_mod_r(key);
+            }
+
+            var buf: [256]ScriptEdit = @splat(ScriptEdit{}); //256 should avoid wait time most of the time i think
+
+            var level: u8 = 0;
+
+            var thread_stop: std.atomic.Value(bool) = .init(false); //threads will stop when this is set true
+
+            //use cores / 2 as our thread count
+            //unless mod count is less than that, we use modcount
+            const thread_count = @min(self._hazemod_mod_queue.items.len, (std.Thread.getCpuCount() catch return InjectorError.ThreadingError) / 2);
+            var edit_queue: std.Io.Queue(ScriptEdit) = .init(&buf);
+
+            var task_list: std.ArrayList(std.Io.Future(InjectorError!void)) = .empty;
+            defer task_list.clearAndFree(self._allocator);
+
+            for (0..thread_count) |i| {
+                _ = i;
+                var thread = std.Thread.spawn(.{ .allocator = self._allocator }, thread_execute_edits, .{io, &edit_queue, &thread_stop}) catch return InjectorError.ThreadingError;
+                thread.detach();
+            }
+
+            while (self._hazemod_mod_queue.items.len > 0) : (level += 1) {
+                while (self._hazemod_mod_queue.items.len > 0 and self._hazemod_mod_queue.peek().?.dependency_level == level) { //start all mods of the current level
+                    if(self._hazemod_mod_queue.pop()) |m| {
+                        const task: std.Io.Future(InjectorError!void) = io.async(worker_stream_edits, .{ m, &edit_queue, self._allocator });
+                        task_list.append(self._allocator, task) catch return InjectorError.OutOfMemory;
+                    } else {
+                        return InjectorError.UnknownError;
+                    }
+                }
+
+                for (task_list.items) |*t| { //await all tasks finished
+                    try t.await(io);
+                }
+
+                task_list.clearRetainingCapacity();
+            }
+            thread_stop.store(true, .release);
         }
 
-        self._asmod_mod_pool.purge();
+        self._hazemod_mod_pool.purge();
         self._zip_mod_pool.clearRetainingCapacity();
-        self._asmod_mod_queue.clearRetainingCapacity();
+        self._hazemod_mod_queue.clearRetainingCapacity();
     }
 
     /// Installs a mod using the legacy zip format.
@@ -128,37 +180,49 @@ pub const ModLib = struct {
         };
     }
 
-    fn handle_mod(self: *ModLib, key: []const u8) InjectorError!u8 {
-        const mod_index = self._asmod_mod_pool.findMod(key) catch return InjectorError.MissingDependency;
+    fn order_mod_r(self: *ModLib, key: []const u8) InjectorError!u8 {
+        const mod_index = self._hazemod_mod_pool.findMod(key) catch return InjectorError.MissingDependency;
 
-        if(self._asmod_mod_pool.nodes.items[mod_index].mod) |m| {
+        if (self._hazemod_mod_pool.nodes.items[mod_index].mod) |m| {
             var level: u8 = 0;
 
             //handle dependencies
-            if(m.properties.dependencies) |deps| {
-                for(deps) |dep| {
-                    const l = try self.handle_mod(dep);
-                    if(l > level) level = l + 1;
+            if (m.properties.dependencies) |deps| {
+
+                for (deps) |dep| {
+                    if(self._hazemod_levels.get(dep)) |l| {
+                        level = @max(level, l + 1);
+                        continue;
+                    }
+
+                    const l = try self.order_mod_r(dep);
+                    level = @max(level, l + 1);
                 }
             }
 
             //handle soft dependencies
-            if(m.properties.soft_dependencies) |deps| {
-                for(deps) |dep| {
-                    const l = self.handle_mod(dep) catch {
+            if (m.properties.soft_dependencies) |deps| {
+                for (deps) |dep| {
+                    if(self._hazemod_levels.get(dep)) |l| {
+                        level = @max(level, l + 1);
+                        continue;
+                    }
+
+                    const l = self.order_mod_r(dep) catch {
                         continue;
                     }; //ignore error since dependency isnt required
-                    if(l > level) level = l + 1;
+                    level = @max(level, l + 1);
                 }
             }
 
-            if(self._asmod_mod_pool.nodes.items[mod_index].mod != null) {
-                self._asmod_mod_pool.nodes.items[mod_index].mod.?.dependency_level = level;
+            if (self._hazemod_mod_pool.nodes.items[mod_index].mod != null) {
+                self._hazemod_mod_pool.nodes.items[mod_index].mod.?.dependency_level = level;
             }
 
-            self._asmod_mod_queue.push(self._allocator, m) catch return InjectorError.OutOfMemory;
+            self._hazemod_mod_queue.push(self._allocator, m) catch return InjectorError.OutOfMemory;
 
-            self._asmod_mod_pool.removeKey(key);
+            self._hazemod_mod_pool.removeKey(key);
+            self._hazemod_levels.put(self._allocator, key, level) catch return InjectorError.OutOfMemory;
 
             return level;
         } else {
@@ -166,6 +230,13 @@ pub const ModLib = struct {
         }
     }
 };
+
+fn str_array_contains(arr: [][]const u8, str: []const u8) bool {
+    for(arr) |cur| {
+        if(std.mem.eql(u8, cur, str)) return true;
+    }
+    return false;
+}
 
 /// Used for ordering mods in the installation queue.
 fn order_mods(context: void, a: Mod, b: Mod) std.math.Order {
@@ -177,5 +248,42 @@ fn order_mods(context: void, a: Mod, b: Mod) std.math.Order {
         return std.math.Order.eq;
     } else {
         return std.math.Order.gt;
+    }
+}
+
+/// Executes edits from the queue multithreaded
+fn thread_execute_edits(io: std.Io, queue: *std.Io.Queue(ScriptEdit), stop_condition: *std.atomic.Value(bool)) InjectorError!void {
+    while (!stop_condition.load(.acquire)) {
+        const edit = queue.getOne(io) catch return InjectorError.ThreadingError;
+        try injector.executeEdit(edit, io);
+    }
+}
+
+/// Streams edits to the queue to be executed multithreaded
+fn worker_stream_edits(mod: Mod, queue: *std.Io.Queue(ScriptEdit), allocator: std.mem.Allocator) InjectorError!void {
+    var z = zip.open(mod.path, zip.defaultCompressionLevel, 'r') catch return InjectorError.FileOpenFailure;
+    {
+        defer z.close();
+
+        const entries = z.getEntryTotal() catch return InjectorError.FileReadError;
+
+        for (0..entries) |i| {
+            z.openEntryByIndex(i) catch return InjectorError.FileReadError;
+            {
+                defer z.closeEntry();
+
+                const entry_name = z.getEntryName() catch return InjectorError.FileReadError;
+
+                if(std.mem.eql(u8, std.Io.Dir.path.extension(entry_name), ".as")) { //check if file is .as
+                    const contents = z.readEntry(allocator) catch return InjectorError.FileReadError;
+                    defer allocator.free(contents);
+                    try parser.streamEdits(contents, queue, allocator);
+                }
+
+                if(std.mem.eql(u8, std.Io.Dir.path.extension(entry_name), ".pak")) { //check if file is .pak
+                    //unimplemented
+                }
+            }
+        }
     }
 }

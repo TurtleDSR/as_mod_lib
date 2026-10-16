@@ -21,8 +21,8 @@ test "load zip mod with properties" {
     try testing.expect(properties.dependencies == null);
 }
 
-test "load asmod with properties" {
-    var mod = try modlib.Mod.load("test/static/mods/property-test.asmod", allocator);
+test "load hazemod with properties" {
+    var mod = try modlib.Mod.load("test/static/mods/property-test.hazemod", allocator);
     defer mod.deinit();
 
     const properties = mod.properties;
@@ -36,17 +36,17 @@ test "load asmod with properties" {
     try testing.expect(properties.dependencies == null);
 }
 
-test "queue asmod" {
-    var handle = modlib.ModLib.init("test/static/sandbox", allocator);
+test "queue hazemod" {
+    var handle = try modlib.ModLib.init("test/static/sandbox", allocator);
     defer handle.deinit();
 
-    var mod = try modlib.Mod.load("test/static/mods/property-test.asmod", allocator);
+    var mod = try modlib.Mod.load("test/static/mods/property-test.hazemod", allocator);
     defer mod.deinit();
 
     try handle.queueMod(mod);
 
-    const mod_index = try handle._asmod_mod_pool.findMod(mod.properties.id);
-    const properties = handle._asmod_mod_pool.nodes.items[mod_index].mod.?.properties;
+    const mod_index = try handle._hazemod_mod_pool.findMod(mod.properties.id);
+    const properties = handle._hazemod_mod_pool.nodes.items[mod_index].mod.?.properties;
 
     try testing.expect(std.mem.eql(u8, properties.author, "TurtleDSR"));
     try testing.expect(std.mem.eql(u8, properties.name, "PreloadFix"));

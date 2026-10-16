@@ -5,12 +5,18 @@ const lexer = @import("lexer.zig");
 const BUILDER: LexerTreeBuilder = blk: {
     var builder = LexerTreeBuilder{};
 
-    builder.addKeyword("@open", common.keyword.open);
-    builder.addKeyword("@import", common.keyword.import);
-    builder.addKeyword("@patch", common.keyword.patch);
-    builder.addKeyword("@add", common.keyword.add);
-    builder.addKeyword("@end", common.keyword.end);
-    builder.addKeyword("@//", common.keyword.comment);
+    builder.addKeyword("@open", common.Keyword.open);
+    builder.addKeyword("@import", common.Keyword.import);
+    builder.addKeyword("@patch", common.Keyword.patch);
+    builder.addKeyword("@add", common.Keyword.add);
+    builder.addKeyword("@end", common.Keyword.end);
+    builder.addKeyword("@//", common.Keyword.comment);
+
+    builder.addKeyword("global", common.Keyword.GLOBAL);
+    builder.addKeyword("class", common.Keyword.CLASS);
+    builder.addKeyword("function", common.Keyword.FUNCTION);
+    builder.addKeyword("property", common.Keyword.PROPERTY);
+    builder.addKeyword("enum", common.Keyword.ENUM);
 
     break :blk builder;
 };
@@ -20,7 +26,7 @@ pub const tree = LexerTree{ .nodes = BUILDER.nodes[0..BUILDER.node_count] };
 pub const LexerTree = struct {
     nodes: []const LexerNode,
 
-    pub fn getKeyword(self: LexerTree, key: []const u8) lexer.LexerError!common.keyword {
+    pub fn getKeyword(self: LexerTree, key: []const u8) lexer.Error!common.Keyword {
         var idx: u32 = 0;
 
         for (key) |char| {
@@ -28,11 +34,11 @@ pub const LexerTree = struct {
             if (next_idx != NO_CHILD) {
                 idx = next_idx;
             } else {
-                return lexer.LexerError.UnknownKeyword;
+                return lexer.Error.UnknownKeyword;
             }
         }
 
-        return self.nodes[idx].keyword orelse lexer.LexerError.UnknownKeyword;
+        return self.nodes[idx].keyword orelse lexer.Error.UnknownKeyword;
     }
 };
 
@@ -46,7 +52,7 @@ const LexerTreeBuilder = struct {
         return &self.nodes[0];
     }
 
-    pub fn addKeyword(comptime self: *LexerTreeBuilder, comptime key: []const u8, comptime keyword: common.keyword) void {
+    pub fn addKeyword(comptime self: *LexerTreeBuilder, comptime key: []const u8, comptime keyword: common.Keyword) void {
         var node = self.getRoot();
 
         for (key) |char| {
@@ -69,6 +75,6 @@ const LexerTreeBuilder = struct {
 
 const NO_CHILD: u8 = std.math.maxInt(u8);
 const LexerNode = struct {
-    keyword: ?common.keyword = null,
+    keyword: ?common.Keyword = null,
     children: [256]u8 = @splat(NO_CHILD),
 };

@@ -42,7 +42,7 @@ pub const Mod = struct {
     /// **Parameters:**
     ///
     /// *file* - path to the mod file.
-    /// *allocator* - allocator used for reading mod properties if mod is .asmod format.
+    /// *allocator* - allocator used for reading mod properties if mod is .hazemod format.
     ///
     /// **Returns**
     ///
@@ -54,7 +54,7 @@ pub const Mod = struct {
     pub fn load(file: [:0]const u8, allocator: std.mem.Allocator) ModHandleError!Mod {
         const format = blk: {
             var buf = [_]u8{'_'} ** 4;
-            var form = ModFormat.ASMOD;
+            var form = ModFormat.HAZEMOD;
 
             if (std.mem.eql(u8, std.ascii.lowerString(&buf, file[(file.len - 4)..file.len]), ".zip")) {
                 form = ModFormat.ZIP;
@@ -69,9 +69,9 @@ pub const Mod = struct {
             ._allocator = allocator,
         };
 
-        //asmod file should contain properties
+        //hazemod file should contain properties
         switch (format) {
-            ModFormat.ASMOD => { //asmod format
+            ModFormat.HAZEMOD => { //hazemod format
                 var z = zip.open(file, zip.defaultCompressionLevel, 'r') catch |err| {
                     return switch (err) {
                         zip.ZipError.FileNotFound => ModHandleError.FileNotFound,
