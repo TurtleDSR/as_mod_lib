@@ -33,7 +33,7 @@ pub const ModPool = struct {
         const key = mod.properties.id;
 
         for (key) |char| {
-            if (self.nodes.items[node_index].children[char] == NO_CHILD) {
+            if (self.nodes.items[node_index].children[char] == no_child) {
                 self.nodes.append(allocator, Node{}) catch return Error.OutOfMemory;
                 self.nodes.items[node_index].children[char] = self.nodes.items.len - 1;
             }
@@ -55,7 +55,7 @@ pub const ModPool = struct {
         for (key) |char| {
             const cur = self.nodes.items[node_index];
 
-            if (cur.children[char] == NO_CHILD) return Error.ItemNotFound;
+            if (cur.children[char] == no_child) return Error.ItemNotFound;
             node_index = cur.children[char];
         }
 
@@ -93,8 +93,8 @@ pub const ModPool = struct {
     }
 };
 
-const NO_CHILD: usize = std.math.maxInt(usize);
+const no_child: usize = std.math.maxInt(usize);
 const Node = struct {
-    children: [256]usize = @splat(NO_CHILD),
+    children: [256]usize = @splat(no_child),
     mod: ?Mod = null,
 };

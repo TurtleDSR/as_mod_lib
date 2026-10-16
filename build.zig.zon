@@ -8,6 +8,10 @@
             .url = "git+https://github.com/TurtleDSR/kuba_zip_zig/#80e195fed210e8c408b90a780c9c5f667c60ba27",
             .hash = "zip-1.0.4-17qA5UcTHwB6CVYazmkLoacjgUas9NAwGmxVtmy7wEBx",
         },
+        .zlinter = .{
+            .url = "git+https://github.com/kurtwagner/zlinter?ref=0.16.x#014998d3c0550fa9e9138dc162dfd7662c33ede8",
+            .hash = "zlinter-0.0.1-OjQ08R0aDABmSGyIeyiDIu27zGhw9wxlFiitfhuXAIWv",
+        },
     },
     .paths = .{
         "src",

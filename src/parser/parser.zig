@@ -9,21 +9,16 @@ const ScriptEdit = scriptedit.ScriptEdit;
 pub fn streamEdits(data: []const u8, queue: *std.Io.Queue(ScriptEdit), allocator: std.mem.Allocator) InjectorError!void {
     _ = queue;
     var tokens = lexer.getTokens(data, allocator) catch |err| {
-        return switch(err) {
+        return switch (err) {
             lexer.Error.OutOfMemory => InjectorError.OutOfMemory,
             lexer.Error.UnknownKeyword => InjectorError.SyntaxError,
         };
     };
-    defer {
-        for(tokens.items) |t| {
+
+    defer { //free tokens
+        for (tokens.items) |t| {
             allocator.free(t.data);
         }
         tokens.clearAndFree(allocator);
-    }
-
-    std.debug.print("TOKENS:\n\n", .{});
-
-    for(tokens.items) |t| {
-        std.debug.print("{s}\n", .{t.data});
     }
 }

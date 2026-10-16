@@ -1,6 +1,4 @@
-const std = @import("std");
 const common = @import("../common.zig");
-
 const Keyword = common.Keyword;
 
 pub const Token = struct {

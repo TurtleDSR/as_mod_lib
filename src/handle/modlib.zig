@@ -27,11 +27,11 @@ pub const ModLib = struct {
     /// **Note:**
     ///
     /// This field is intended to be used only internally.
-    _hazemod_mod_queue: std.PriorityQueue(Mod, void, order_mods) = .empty,
+    _hazemod_mod_queue: std.PriorityQueue(Mod, void, orderMods) = .empty,
     /// **Note:**
     ///
     /// This field is intended to be used only internally.
-    _hazemod_levels: std.StringArrayHashMapUnmanaged(u8) = .empty,
+    _hazemod_levels: std.array_hash_map.String(u8) = .empty,
     /// **Note:**
     ///
     /// This field is intended to be used only internally.
@@ -111,12 +111,12 @@ pub const ModLib = struct {
             try self.installZipMod(mod);
         }
 
-        if(self._hazemod_mod_pool.keys.items.len > 0) { //skip installing hazemods if they arent present
+        if (self._hazemod_mod_pool.keys.items.len > 0) { //skip installing hazemods if they arent present
             self._hazemod_levels.clearRetainingCapacity();
             //order hazemod handles into queue.
             while (self._hazemod_mod_pool.keys.items.len > 0) {
                 const key = self._hazemod_mod_pool.pop(0) catch return InjectorError.MissingDependency;
-                _ = try self.order_mod_r(key);
+                _ = try self.orderModR(key);
             }
 
             var buf: [256]ScriptEdit = @splat(ScriptEdit{}); //256 should avoid wait time most of the time i think
@@ -135,14 +135,14 @@ pub const ModLib = struct {
 
             for (0..thread_count) |i| {
                 _ = i;
-                var thread = std.Thread.spawn(.{ .allocator = self._allocator }, thread_execute_edits, .{io, &edit_queue, &thread_stop}) catch return InjectorError.ThreadingError;
+                var thread = std.Thread.spawn(.{ .allocator = self._allocator }, threadExecuteEdits, .{ io, &edit_queue, &thread_stop }) catch return InjectorError.ThreadingError;
                 thread.detach();
             }
 
             while (self._hazemod_mod_queue.items.len > 0) : (level += 1) {
                 while (self._hazemod_mod_queue.items.len > 0 and self._hazemod_mod_queue.peek().?.dependency_level == level) { //start all mods of the current level
-                    if(self._hazemod_mod_queue.pop()) |m| {
-                        const task: std.Io.Future(InjectorError!void) = io.async(worker_stream_edits, .{ m, &edit_queue, self._allocator });
+                    if (self._hazemod_mod_queue.pop()) |m| {
+                        const task: std.Io.Future(InjectorError!void) = io.async(workerStreamEdits, .{ m, &edit_queue, self._allocator });
                         task_list.append(self._allocator, task) catch return InjectorError.OutOfMemory;
                     } else {
                         return InjectorError.UnknownError;
@@ -180,7 +180,7 @@ pub const ModLib = struct {
         };
     }
 
-    fn order_mod_r(self: *ModLib, key: []const u8) InjectorError!u8 {
+    fn orderModR(self: *ModLib, key: []const u8) InjectorError!u8 {
         const mod_index = self._hazemod_mod_pool.findMod(key) catch return InjectorError.MissingDependency;
 
         if (self._hazemod_mod_pool.nodes.items[mod_index].mod) |m| {
@@ -188,30 +188,29 @@ pub const ModLib = struct {
 
             //handle dependencies
             if (m.properties.dependencies) |deps| {
-
                 for (deps) |dep| {
-                    if(self._hazemod_levels.get(dep)) |l| {
-                        level = @max(level, l + 1);
+                    if (self._hazemod_levels.get(dep)) |lev| {
+                        level = @max(level, lev + 1);
                         continue;
                     }
 
-                    const l = try self.order_mod_r(dep);
-                    level = @max(level, l + 1);
+                    const lev = try self.orderModR(dep);
+                    level = @max(level, lev + 1);
                 }
             }
 
             //handle soft dependencies
             if (m.properties.soft_dependencies) |deps| {
                 for (deps) |dep| {
-                    if(self._hazemod_levels.get(dep)) |l| {
-                        level = @max(level, l + 1);
+                    if (self._hazemod_levels.get(dep)) |lev| {
+                        level = @max(level, lev + 1);
                         continue;
                     }
 
-                    const l = self.order_mod_r(dep) catch {
+                    const lev = self.orderModR(dep) catch {
                         continue;
                     }; //ignore error since dependency isnt required
-                    level = @max(level, l + 1);
+                    level = @max(level, lev + 1);
                 }
             }
 
@@ -231,15 +230,8 @@ pub const ModLib = struct {
     }
 };
 
-fn str_array_contains(arr: [][]const u8, str: []const u8) bool {
-    for(arr) |cur| {
-        if(std.mem.eql(u8, cur, str)) return true;
-    }
-    return false;
-}
-
 /// Used for ordering mods in the installation queue.
-fn order_mods(context: void, a: Mod, b: Mod) std.math.Order {
+fn orderMods(context: void, a: Mod, b: Mod) std.math.Order {
     _ = context; //ignored
 
     if (a.dependency_level < b.dependency_level) {
@@ -252,7 +244,7 @@ fn order_mods(context: void, a: Mod, b: Mod) std.math.Order {
 }
 
 /// Executes edits from the queue multithreaded
-fn thread_execute_edits(io: std.Io, queue: *std.Io.Queue(ScriptEdit), stop_condition: *std.atomic.Value(bool)) InjectorError!void {
+fn threadExecuteEdits(io: std.Io, queue: *std.Io.Queue(ScriptEdit), stop_condition: *std.atomic.Value(bool)) InjectorError!void {
     while (!stop_condition.load(.acquire)) {
         const edit = queue.getOne(io) catch return InjectorError.ThreadingError;
         try injector.executeEdit(edit, io);
@@ -260,7 +252,7 @@ fn thread_execute_edits(io: std.Io, queue: *std.Io.Queue(ScriptEdit), stop_condi
 }
 
 /// Streams edits to the queue to be executed multithreaded
-fn worker_stream_edits(mod: Mod, queue: *std.Io.Queue(ScriptEdit), allocator: std.mem.Allocator) InjectorError!void {
+fn workerStreamEdits(mod: Mod, queue: *std.Io.Queue(ScriptEdit), allocator: std.mem.Allocator) InjectorError!void {
     var z = zip.open(mod.path, zip.defaultCompressionLevel, 'r') catch return InjectorError.FileOpenFailure;
     {
         defer z.close();
@@ -274,13 +266,13 @@ fn worker_stream_edits(mod: Mod, queue: *std.Io.Queue(ScriptEdit), allocator: st
 
                 const entry_name = z.getEntryName() catch return InjectorError.FileReadError;
 
-                if(std.mem.eql(u8, std.Io.Dir.path.extension(entry_name), ".as")) { //check if file is .as
+                if (std.mem.eql(u8, std.Io.Dir.path.extension(entry_name), ".as")) { //check if file is .as
                     const contents = z.readEntry(allocator) catch return InjectorError.FileReadError;
                     defer allocator.free(contents);
                     try parser.streamEdits(contents, queue, allocator);
                 }
 
-                if(std.mem.eql(u8, std.Io.Dir.path.extension(entry_name), ".pak")) { //check if file is .pak
+                if (std.mem.eql(u8, std.Io.Dir.path.extension(entry_name), ".pak")) { //check if file is .pak
                     //unimplemented
                 }
             }

@@ -1,8 +1,8 @@
 build:
   @zig build
 
-docs: build
-  @zig build docs
+lint: build
+  @zig build lint
 
 test: build
   @[ -d test/static/sandbox/Scripts ] || mkdir -p test/static/sandbox/Scripts
